@@ -96,15 +96,15 @@ void next_vault_rare(Xoroshiro *xr) {
     } else if (n >= 17 && n < 19) {
         // Enchanted book (bad).
         // Roll enchantment.
-        xNextInt(xr, 1);
+        int e = xNextInt(xr, 6);
         // Roll enchantment level.
-        xNextInt(xr, 1);
+        if (e != 4) xNextInt(xr, 1);
     } else if (n >= 19 && n < 21) {
         // Enchanted book (good - riptide, channeling, mending).
         // Roll enchantment.
-        xNextInt(xr, 1);
+        int e = xNextInt(xr, 5);
         // Roll enchantment level.
-        xNextInt(xr, 1);
+        if (e != 2 && e != 4) xNextInt(xr, 1);
     } else if (n == 21) {
         // Diamond chestplate.
         // Roll enchantment.
@@ -183,9 +183,9 @@ void next_ominous_vault_rare(Xoroshiro *xr) {
         // xNextInt(xr, 1);
     } else if (n >= 22 && n < 24) {
         // Random enchanted book.
-        xNextInt(xr, 2);
-        // Random enchantment level. (Maybe don't do this if it is multishot?)
-        xNextInt(xr, 2);
+        int e = xNextInt(xr, 5);
+        // Random enchantment level.
+        if (e != 4) xNextInt(xr, 2);
     } else if (n >= 24 && n < 26) {
         // Braech or Density.
         xNextInt(xr, 2);
