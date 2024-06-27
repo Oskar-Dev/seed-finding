@@ -22,6 +22,15 @@ int nextHasSkull(int lootingLevel, Xoroshiro *xr) {
     return xNextFloat(xr) < 0.025 + (0.01 * lootingLevel);
 }
 
+void enchantment_fix(Xoroshiro *xr, int level, int ench_val) {
+    level += xNextInt(xr, ench_val / 4 + 1) + xNextInt(xr, ench_val / 4 + 1);
+    xNextFloat(xr);
+    xNextFloat(xr);
+    while (xNextInt(xr, 50) <= level) {
+        level = level * 4 / 5 + 1;
+    }
+}
+
 void next_vault_common(Xoroshiro *xr) {
     int n = xNextInt(xr, 25);
     if (n < 4) {
@@ -63,7 +72,7 @@ void next_vault_common(Xoroshiro *xr) {
     }
 }
 
-void next_vault_rare(Xoroshiro *xr) {
+int next_vault_rare(Xoroshiro *xr) {
     int n = xNextInt(xr, 23);
     if (n < 3) {
         // Emeralds.
@@ -76,7 +85,8 @@ void next_vault_rare(Xoroshiro *xr) {
     } else if (n >= 6 && n < 9) {
         // Enchanted Bow.
         // Roll enchantment.
-        xNextInt(xr, 1);
+        enchantment_fix(xr, xNextInt(xr, 11) + 5, 1);
+        return 0;
     } else if (n >= 9 && n < 11) {
         // Crossbow.
         // Roll enchant.
@@ -84,11 +94,13 @@ void next_vault_rare(Xoroshiro *xr) {
     } else if (n >= 11 && n < 13) {
         // Iron axe.
         // Roll enchantment.
-        xNextInt(xr, 1);
+        enchantment_fix(xr, xNextInt(xr, 11), 14);
+        return 0;
     } else if (n >= 13 && n < 15) {
         // Iron chestplate.
         // Roll enchantment.
-        xNextInt(xr, 1);
+        enchantment_fix(xr, xNextInt(xr, 11), 9);
+        return 0;
     } else if (n >= 15 && n < 17) {
         // Golden Carrot(s).
         // Roll count.
@@ -108,19 +120,22 @@ void next_vault_rare(Xoroshiro *xr) {
     } else if (n == 21) {
         // Diamond chestplate.
         // Roll enchantment.
-        xNextInt(xr, 1);
+        enchantment_fix(xr, xNextInt(xr, 11) + 5, 10);
+        return 0;
     } else if (n == 22) {
         // Diamond axe.
         // Roll enchantment.
-        xNextInt(xr, 1);
+        enchantment_fix(xr, xNextInt(xr, 11) + 5, 10);
+        return 0;
     }
+    return 1;
 }
 
 int next_vault_unique(Xoroshiro *xr) {
     // Choose a common or a rare roll.
     if (xNextInt(xr, 10) < 8) {
         // Rare.
-        next_vault_rare(xr);
+        if (!next_vault_rare(xr)) return -1;
     } else {
         // Common.
         next_vault_common(xr);
@@ -160,7 +175,7 @@ void next_ominous_vault_common(Xoroshiro *xr) {
     }
 }
 
-void next_ominous_vault_rare(Xoroshiro *xr) {
+int next_ominous_vault_rare(Xoroshiro *xr) {
     int n = xNextInt(xr, 29);
     if (n < 5) {
         // Emerald block.
@@ -169,18 +184,18 @@ void next_ominous_vault_rare(Xoroshiro *xr) {
     } else if (n >= 9 && n < 13) {
         // Crossbow with a random enchantment.
         xNextInt(xr, 1);
+        // enchantment_fix(xr, xNextInt(xr, 16) + 5, 10);
+        return 0;
     } else if (n >= 13 && n < 16) {
         // Golden apple.
     } else if (n >= 16 && n < 19) {
         // Diamond axe with a random enchantment.
-        xNextInt(xr, 1);
+        enchantment_fix(xr, xNextInt(xr, 11) + 10, 10);
+        return 0;
     } else if (n >= 19 && n < 22) {
         // Diamond chestplate with a random enchantment.
-        xNextInt(xr, 1);
-        // xNextInt(xr, 1);
-        // xNextInt(xr, 1);
-        // xNextInt(xr, 1);
-        // xNextInt(xr, 1);
+        enchantment_fix(xr, xNextInt(xr, 11) + 10, 10);
+        return 0;
     } else if (n >= 22 && n < 24) {
         // Random enchanted book.
         int e = xNextInt(xr, 5);
@@ -197,13 +212,14 @@ void next_ominous_vault_rare(Xoroshiro *xr) {
     } else if (n == 28) {
         // Diamond block.
     }
+    return 1;
 }
 
 int next_ominous_vault_unique(Xoroshiro *xr) {
     // Choose a common or a rare roll.
     if (xNextInt(xr, 10) < 8) {
         // Rare.
-        next_ominous_vault_rare(xr);
+        if (!next_ominous_vault_rare(xr)) return -1;
     } else {
         // Common.
         next_ominous_vault_common(xr);
@@ -271,9 +287,9 @@ int main() {
     // Xoroshiro xoro2 = getRandomSequenceXoro(seed2, str1);
     // Xoroshiro xoro3 = getRandomSequenceXoro(seed3, str1);
     // for (int i = 0; i < 20; ++i) {
-    //     int x = next_has_heavy_core(&xoro1);
-    //     int y = next_has_heavy_core(&xoro2);
-    //     int z = next_has_heavy_core(&xoro3);
+    //     int x = next_ominous_vault_unique(&xoro1);
+    //     int y = next_ominous_vault_unique(&xoro2);
+    //     int z = next_ominous_vault_unique(&xoro3);
         
     //     printf("%d, %d, %d\n", x, y, z);
     // }

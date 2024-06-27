@@ -1,0 +1,1 @@
+g++ main.c MiLTSU/md5.c -o main.exe
