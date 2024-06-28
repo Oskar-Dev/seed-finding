@@ -2,27 +2,29 @@
 #include <math.h>
 #include "MiLTSU/bartering.c"
 #include "MiLTSU/random_sequence.c"
+#include "MiLTSU/md5.c"
 
-int nextRods(int looting, Xoroshiro *xr) {
-    int setCount = xNextInt(xr, 2);
-
-    if (looting == 0) {
-        return setCount;
-    }
-    return setCount + round(xNextFloat(xr) * looting);
+int next_has_torchflower_seed(Xoroshiro *xr) {
+    return !xNextInt(xr, 2);
 }
 
-int nextHasSkull(int lootingLevel, Xoroshiro *xr) {
+int next_has_rod(Xoroshiro *xr) {
+    return xNextInt(xr, 2);
+}
+
+int next_has_skull(int looting_level, Xoroshiro *xr) {
     // Throw out bones and coal random calls (looting, no matter the level, is just 1 extra call for both coal and bones)
-    for (int i = 0; i < 2 + (lootingLevel > 0 ? 2 : 0); i++) {
+    for (int i = 0; i < 2 + (looting_level > 0 ? 2 : 0); i++) {
         xNextInt(xr, 1);
     }
 
     // Actual skull rng
-    return xNextFloat(xr) < 0.025 + (0.01 * lootingLevel);
+    return xNextFloat(xr) < 0.025 + (0.01 * looting_level);
 }
 
 void enchantment_fix(Xoroshiro *xr, int level, int ench_val) {
+
+    // DOesn't work, lol.
     level += xNextInt(xr, ench_val / 4 + 1) + xNextInt(xr, ench_val / 4 + 1);
     xNextFloat(xr);
     xNextFloat(xr);
@@ -238,77 +240,86 @@ int next_ominous_vault_unique(Xoroshiro *xr) {
     return xNextInt(xr, 10);
 }
 
-int main() {
-//     char* str = "minecraft:gameplay/piglin_bartering";
-//     uint64_t seed = 0;
-//     int pearls;
-//     for (;; ++seed) {
-//         Xoroshiro xoro = getRandomSequenceXoro(seed, str);
-        
-//         for (int i = 0; i < 5; ++i) {
-//             pearls = nextPearls(&xoro);
-//             if (pearls == 0) {
-//                 break;
-//             }
-            
-//             if (pearls > 0 && i == 5 - 1) { 
-//                 goto end;
-//             }
-//         } 
-//     }
-
-// end:
-//     printf("seed: %lld; count: %d\n", seed, pearls);
-
-//     char* str = "minecraft:chests/trial_chambers/reward_ominous";
-//     uint64_t seed = 0;
-//     int x;
-//     for (;; ++seed) {
-//         Xoroshiro xoro = getRandomSequenceXoro(seed, str);
-        
-//         x = nextHasHeavycore(&xoro);
-//         if (x == 1) {
-//             printf("seed: %lld;\n", seed);
-//             // goto end;
-//         }
-//     }
-
-// end:
-//     printf("seed: %lld;\n", seed);
-
-    // Heavy core, 5 emeralds, 2 diamonds, 7 emeralds, Dichte I Book.
-    // Unique, common x3, rare.
-
-    // char* str1 = "minecraft:chests/trial_chambers/reward_ominous";
-    // uint64_t seed1 = -3557589012648597516;
-    // uint64_t seed2 = 12;
-    // uint64_t seed3 = 46;
-    // Xoroshiro xoro1 = getRandomSequenceXoro(seed1, str1);
-    // Xoroshiro xoro2 = getRandomSequenceXoro(seed2, str1);
-    // Xoroshiro xoro3 = getRandomSequenceXoro(seed3, str1);
-    // for (int i = 0; i < 20; ++i) {
-    //     int x = next_ominous_vault_unique(&xoro1);
-    //     int y = next_ominous_vault_unique(&xoro2);
-    //     int z = next_ominous_vault_unique(&xoro3);
-        
-    //     printf("%d, %d, %d\n", x, y, z);
-    // }
-
+int filter_vaults(uint64_t seed) {
     char* reward_path = "minecraft:chests/trial_chambers/reward";
     char* ominous_reward_path = "minecraft:chests/trial_chambers/reward_ominous";
-    uint64_t seed = 0;
-    int x;
-    for (;; ++seed) {
-        Xoroshiro xoro_reward = getRandomSequenceXoro(seed, reward_path);
-        Xoroshiro xoro_ominous_reward = getRandomSequenceXoro(seed, ominous_reward_path);
-        
-        if (next_ominous_vault_unique(&xoro_ominous_reward) == 9 && next_vault_unique(&xoro_reward) == 11) {
-            printf("Seed: %lld\n", seed);
-        }
+
+    Xoroshiro xoro_reward = getRandomSequenceXoro(seed, reward_path);
+    Xoroshiro xoro_ominous_reward = getRandomSequenceXoro(seed, ominous_reward_path);
+
+    return next_ominous_vault_unique(&xoro_ominous_reward) == 9 && next_vault_unique(&xoro_reward) == 11;
+}
+
+int filter_pearls(uint64_t seed, int gold, int pearls) {
+    if (pearls <= 0 || gold <= 0) return 0;
+
+    char* str = "minecraft:gameplay/piglin_bartering";
+    Xoroshiro xoro = getRandomSequenceXoro(seed, str);
+    
+    int rolled_pearls = 0;  
+    for (int i = 0; i < gold; ++i) {
+        rolled_pearls += nextPearls(&xoro);
     }
 
-// end:
-//     printf("seed: %lld;\n", seed);
+    return rolled_pearls >= pearls;
+}
+
+int filter_skulls(uint64_t seed, int kills, int skulls, int looting_level) {
+    if (kills < 0 || skulls <= 0 || kills < skulls || looting_level < 0 || looting_level > 3) return 0;
+
+    char* str = "minecraft:entities/wither_skeleton";
+    Xoroshiro xoro = getRandomSequenceXoro(seed, str);
+
+    int rolled_skulls = 0;
+    for (int i = 0; i < kills; ++i) {
+        rolled_skulls += next_has_skull(looting_level, &xoro);
+    }
+
+    return rolled_skulls >= skulls;
+}
+
+int filter_blaze_rods(uint64_t seed, int kills, int rods) {
+    if (kills < 0 || rods <= 0 || kills < rods) return 0;
+
+    char* str = "minecraft:entities/blaze";
+    Xoroshiro xoro = getRandomSequenceXoro(seed, str);
+
+    int rolled_rods = 0;
+    for (int i = 0; i < kills; ++i) {
+        rolled_rods += next_has_rod(&xoro);
+    }
+
+    return rolled_rods >= rods;
+}
+
+int filter_torchflower_seeds(uint64_t seed, int sniffs, int seeds) {
+    char* str = "minecraft:gameplay/sniffer_digging";
+    Xoroshiro xoro = getRandomSequenceXoro(seed, str);
+
+    int rolled_seeds = 0;
+    for (int i = 0; i < sniffs; ++i) {
+        rolled_seeds += next_has_torchflower_seed(&xoro);
+    }
+    return rolled_seeds >= seeds;
+}
+
+// Seed: 738925
+// Seed: 1411341
+// Seed: 3405489
+// Seed: 3747813
+// Seed: 3995650
+// Seed: 4292664
+// Seed: 4355679
+// Seed: 4560515
+// Seed: 4757130
+// Seed: 5799821
+
+int main() {
+    uint64_t seed = 0;
+    for (;; ++seed) {
+        if (filter_blaze_rods(seed, 8, 6) && filter_pearls(seed, 80, 20) && filter_skulls(seed, 10, 3, 3) && filter_vaults(seed))
+            printf("Seed: %lld\n", seed);
+    }
 
     return 0;
 }

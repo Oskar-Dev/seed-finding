@@ -1,1 +1,1 @@
-g++ main.c MiLTSU/md5.c -o main.exe
+g++ main.c -o main.exe -O3 -Wall

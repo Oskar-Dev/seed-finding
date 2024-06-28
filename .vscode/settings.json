@@ -1,5 +1,6 @@
 {
   "files.associations": {
-    "bartering.h": "c"
+    "bartering.h": "c",
+    "stdio.h": "c"
   }
 }
