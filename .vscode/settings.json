@@ -1,6 +1,10 @@
 {
   "files.associations": {
     "bartering.h": "c",
-    "stdio.h": "c"
+    "stdio.h": "c",
+    "stdint.h": "c",
+    "noise.h": "c",
+    "random_sequence.h": "c",
+    "finders.c": "cpp"
   }
 }

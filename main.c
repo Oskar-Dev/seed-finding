@@ -1,8 +1,10 @@
+// #include "end_city.c"
+// #include "cubiomes.h"
+#include "MiLTSU.h"
 #include <stdio.h>
+#include <stdlib.h>
 #include <math.h>
-#include "MiLTSU/bartering.c"
-#include "MiLTSU/random_sequence.c"
-#include "MiLTSU/md5.c"
+#include <omp.h>
 
 int next_has_torchflower_seed(Xoroshiro *xr) {
     return !xNextInt(xr, 2);
@@ -87,21 +89,22 @@ int next_vault_rare(Xoroshiro *xr) {
     } else if (n >= 6 && n < 9) {
         // Enchanted Bow.
         // Roll enchantment.
-        enchantment_fix(xr, xNextInt(xr, 11) + 5, 1);
+        // enchantment_fix(xr, xNextInt(xr, 11) + 5, 1);
         return 0;
     } else if (n >= 9 && n < 11) {
         // Crossbow.
         // Roll enchant.
         xNextInt(xr, 1);
+        return 0;
     } else if (n >= 11 && n < 13) {
         // Iron axe.
         // Roll enchantment.
-        enchantment_fix(xr, xNextInt(xr, 11), 14);
+        // enchantment_fix(xr, xNextInt(xr, 11), 14);
         return 0;
     } else if (n >= 13 && n < 15) {
         // Iron chestplate.
         // Roll enchantment.
-        enchantment_fix(xr, xNextInt(xr, 11), 9);
+        // enchantment_fix(xr, xNextInt(xr, 11), 9);
         return 0;
     } else if (n >= 15 && n < 17) {
         // Golden Carrot(s).
@@ -122,12 +125,12 @@ int next_vault_rare(Xoroshiro *xr) {
     } else if (n == 21) {
         // Diamond chestplate.
         // Roll enchantment.
-        enchantment_fix(xr, xNextInt(xr, 11) + 5, 10);
+        // enchantment_fix(xr, xNextInt(xr, 11) + 5, 10);
         return 0;
     } else if (n == 22) {
         // Diamond axe.
         // Roll enchantment.
-        enchantment_fix(xr, xNextInt(xr, 11) + 5, 10);
+        // enchantment_fix(xr, xNextInt(xr, 11) + 5, 10);
         return 0;
     }
     return 1;
@@ -137,6 +140,7 @@ int next_vault_unique(Xoroshiro *xr) {
     // Choose a common or a rare roll.
     if (xNextInt(xr, 10) < 8) {
         // Rare.
+        // if (!next_vault_rare(xr)) return -1;
         if (!next_vault_rare(xr)) return -1;
     } else {
         // Common.
@@ -192,11 +196,11 @@ int next_ominous_vault_rare(Xoroshiro *xr) {
         // Golden apple.
     } else if (n >= 16 && n < 19) {
         // Diamond axe with a random enchantment.
-        enchantment_fix(xr, xNextInt(xr, 11) + 10, 10);
+        // enchantment_fix(xr, xNextInt(xr, 11) + 10, 10);
         return 0;
     } else if (n >= 19 && n < 22) {
         // Diamond chestplate with a random enchantment.
-        enchantment_fix(xr, xNextInt(xr, 11) + 10, 10);
+        // enchantment_fix(xr, xNextInt(xr, 11) + 10, 10);
         return 0;
     } else if (n >= 22 && n < 24) {
         // Random enchanted book.
@@ -240,21 +244,19 @@ int next_ominous_vault_unique(Xoroshiro *xr) {
     return xNextInt(xr, 10);
 }
 
+char* reward_path = "minecraft:chests/trial_chambers/reward";
+char* ominous_reward_path = "minecraft:chests/trial_chambers/reward_ominous";
 int filter_vaults(uint64_t seed) {
-    char* reward_path = "minecraft:chests/trial_chambers/reward";
-    char* ominous_reward_path = "minecraft:chests/trial_chambers/reward_ominous";
-
     Xoroshiro xoro_reward = getRandomSequenceXoro(seed, reward_path);
     Xoroshiro xoro_ominous_reward = getRandomSequenceXoro(seed, ominous_reward_path);
 
     return next_ominous_vault_unique(&xoro_ominous_reward) == 9 && next_vault_unique(&xoro_reward) == 11;
 }
 
+char* bartering_str = "minecraft:gameplay/piglin_bartering";
 int filter_pearls(uint64_t seed, int gold, int pearls) {
     if (pearls <= 0 || gold <= 0) return 0;
-
-    char* str = "minecraft:gameplay/piglin_bartering";
-    Xoroshiro xoro = getRandomSequenceXoro(seed, str);
+    Xoroshiro xoro = getRandomSequenceXoro(seed, bartering_str);
     
     int rolled_pearls = 0;  
     for (int i = 0; i < gold; ++i) {
@@ -264,11 +266,10 @@ int filter_pearls(uint64_t seed, int gold, int pearls) {
     return rolled_pearls >= pearls;
 }
 
+char* wither_skeleton_str = "minecraft:entities/wither_skeleton";
 int filter_skulls(uint64_t seed, int kills, int skulls, int looting_level) {
     if (kills < 0 || skulls <= 0 || kills < skulls || looting_level < 0 || looting_level > 3) return 0;
-
-    char* str = "minecraft:entities/wither_skeleton";
-    Xoroshiro xoro = getRandomSequenceXoro(seed, str);
+    Xoroshiro xoro = getRandomSequenceXoro(seed, wither_skeleton_str);
 
     int rolled_skulls = 0;
     for (int i = 0; i < kills; ++i) {
@@ -278,11 +279,10 @@ int filter_skulls(uint64_t seed, int kills, int skulls, int looting_level) {
     return rolled_skulls >= skulls;
 }
 
+char* blaze_str = "minecraft:entities/blaze";
 int filter_blaze_rods(uint64_t seed, int kills, int rods) {
     if (kills < 0 || rods <= 0 || kills < rods) return 0;
-
-    char* str = "minecraft:entities/blaze";
-    Xoroshiro xoro = getRandomSequenceXoro(seed, str);
+    Xoroshiro xoro = getRandomSequenceXoro(seed, blaze_str);
 
     int rolled_rods = 0;
     for (int i = 0; i < kills; ++i) {
@@ -292,9 +292,9 @@ int filter_blaze_rods(uint64_t seed, int kills, int rods) {
     return rolled_rods >= rods;
 }
 
+char* sniffer_str = "minecraft:gameplay/sniffer_digging";
 int filter_torchflower_seeds(uint64_t seed, int sniffs, int seeds) {
-    char* str = "minecraft:gameplay/sniffer_digging";
-    Xoroshiro xoro = getRandomSequenceXoro(seed, str);
+    Xoroshiro xoro = getRandomSequenceXoro(seed, sniffer_str);
 
     int rolled_seeds = 0;
     for (int i = 0; i < sniffs; ++i) {
@@ -303,23 +303,95 @@ int filter_torchflower_seeds(uint64_t seed, int sniffs, int seeds) {
     return rolled_seeds >= seeds;
 }
 
-// Seed: 738925
-// Seed: 1411341
-// Seed: 3405489
-// Seed: 3747813
-// Seed: 3995650
-// Seed: 4292664
-// Seed: 4355679
-// Seed: 4560515
-// Seed: 4757130
-// Seed: 5799821
-
 int main() {
-    uint64_t seed = 0;
-    for (;; ++seed) {
-        if (filter_blaze_rods(seed, 8, 6) && filter_pearls(seed, 80, 20) && filter_skulls(seed, 10, 3, 3) && filter_vaults(seed))
-            printf("Seed: %lld\n", seed);
+    int buffer_len = 50;
+
+    // #pragma omp parallel num_threads(10)
+    // {
+    //     char buffer[50];
+    //     FILE* input;
+    //     input = fopen("input_new.txt", "r");
+    //     if (input == NULL) {
+    //         printf("[ERROR]: Couldn't open the seeds file.\n");
+    //         exit(1);
+    //     }
+        
+    //     FILE* output;
+    //     output = fopen("output.txt", "a");
+    //     if (output == NULL) {
+    //         printf("[ERROR]: Couldn't open the seeds file.\n");
+    //         exit(1);
+    //     }
+        
+    //     #pragma omp for
+    //     for (int line_to_read = 0; line_to_read < 360501; ++line_to_read) {
+    //         int line = 0;
+    //         while(fgets(buffer, buffer_len, input)) {
+    //             if (line != line_to_read) {
+    //                 ++line;
+    //                 continue;
+    //             }
+
+    //             buffer[strcspn(buffer, "\n")] = 0;
+    //             uint64_t structure_seed = strtoull(buffer, NULL, 10);        
+                
+    //             for (uint64_t i = 0; i < 65536; ++i) {
+    //                 uint64_t seed = (i << 48) | structure_seed;
+
+    //                 if (
+    //                     // filter_vaults(seed) && 
+    //                     filter_blaze_rods(seed, 8, 6) && 
+    //                     filter_pearls(seed, 90, 20) && 
+    //                     filter_skulls(seed, 10, 3, 3)
+    //                 ) {
+    //                     printf("Seed: %lld\n", seed);
+    //                     fprintf(output, "%lld\n", seed);
+    //                 }
+    //             }
+    //         }
+    //     }
+    //     fclose(input);
+    //     fclose(output);
+    // }
+
+    char buffer[50];
+    FILE* input;
+    input = fopen("input_new.txt", "r");
+    if (input == NULL) {
+        printf("[ERROR]: Couldn't open the seeds file.\n");
+        exit(1);
+    }
+    
+    FILE* output;
+    output = fopen("output.txt", "a");
+    if (output == NULL) {
+        printf("[ERROR]: Couldn't open the seeds file.\n");
+        exit(1);
+    }
+    
+    while(fgets(buffer, buffer_len, input)) {
+        buffer[strcspn(buffer, "\n")] = 0;
+        uint64_t structure_seed = strtoull(buffer, NULL, 10); 
+        
+        #pragma omp parallel num_threads(12)
+        #pragma omp for
+        for (uint64_t i = 0; i < 65536; ++i) {
+            uint64_t seed = (i << 48) | structure_seed;
+            
+            if (
+                filter_pearls(seed, 100, 20) == 1 && 
+                filter_vaults(seed) == 1 && 
+                filter_skulls(seed, 10, 3, 3) == 1 &&
+                filter_blaze_rods(seed, 9, 6)
+            ) {
+                printf("Seed: %lld\n", seed);
+                fprintf(output, "%lld\n", seed);
+            }
+        }
     }
 
+    fclose(input);
+    fclose(output);
+    
     return 0;
 }

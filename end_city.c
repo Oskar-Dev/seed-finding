@@ -1,0 +1,48 @@
+#include <stdio.h>
+#include <stdint.h>
+#include <stdbool.h>
+#include "end_city.h"
+
+int dist(int x1, int y1, int x2, int y2) {
+    return (int)sqrt((x1 - x2)*(x1 - x2) + (y1 - y2)*(y1 - y2));
+}
+
+int check_end_city(uint64_t seed, int max_distance) {
+    SurfaceNoise noise;
+    Generator g;
+    setupGenerator(&g, MC_1_21, 0);
+
+    applySeed(&g, DIM_END, seed);
+    initSurfaceNoise(&noise, DIM_END, seed);
+
+    Pos3 gateway_pos = linkedGateway(seed);
+    int reg_x = gateway_pos.x / 320;
+    int reg_z = gateway_pos.z / 320;
+    Pos city_pos;
+    Piece* pieces = malloc(END_CITY_PIECES_MAX * sizeof(Piece));
+
+    for (int reg_mod_x = -1; reg_mod_x <= 1; ++reg_mod_x) {
+        for (int reg_mod_z = -1; reg_mod_z <= 1; ++reg_mod_z) {
+            if (getStructurePos(End_City, MC_1_21, seed, reg_x + reg_mod_x, reg_z + reg_mod_z, &city_pos) == 0) {
+                continue;
+            }
+            
+            if (
+                isViableStructurePos(End_City, &g, city_pos.x, city_pos.z, 0) && 
+                isViableEndCityTerrain(&g, &noise, city_pos.x, city_pos.z)
+            ) {
+                if (dist(city_pos.x, city_pos.z, gateway_pos.x, gateway_pos.z) <= max_distance) {
+                    getEndCityPieces(pieces, seed, reg_x, reg_z);
+                    for (int i = 0; i < END_CITY_PIECES_MAX; ++i) {
+                        if (strcmp(pieces[i].name, "ship"))
+                            return 1;
+                    }
+                }
+            }
+        }
+    }
+
+    free(pieces);
+    
+    return 0;
+}

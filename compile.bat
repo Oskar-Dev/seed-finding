@@ -1,1 +1,1 @@
-g++ main.c -o main.exe -O3 -Wall
+gcc main.c -o main.exe -O3 -std=c99 -fopenmp
