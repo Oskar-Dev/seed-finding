@@ -1,5 +1,5 @@
 // #include "end_city.c"
-// #include "cubiomes.h"
+#include "cubiomes.h"
 #include "MiLTSU.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -354,44 +354,134 @@ int main() {
     //     fclose(output);
     // }
 
-    char buffer[50];
-    FILE* input;
-    input = fopen("input_new.txt", "r");
-    if (input == NULL) {
-        printf("[ERROR]: Couldn't open the seeds file.\n");
-        exit(1);
-    }
+    // char buffer[50];
+    // FILE* input;
+    // input = fopen("input_new.txt", "r");
+    // if (input == NULL) {
+    //     printf("[ERROR]: Couldn't open the seeds file.\n");
+    //     exit(1);
+    // }
     
-    FILE* output;
-    output = fopen("output.txt", "a");
-    if (output == NULL) {
-        printf("[ERROR]: Couldn't open the seeds file.\n");
-        exit(1);
-    }
+    // FILE* output;
+    // output = fopen("output.txt", "a");
+    // if (output == NULL) {
+    //     printf("[ERROR]: Couldn't open the seeds file.\n");
+    //     exit(1);
+    // }
     
-    while(fgets(buffer, buffer_len, input)) {
-        buffer[strcspn(buffer, "\n")] = 0;
-        uint64_t structure_seed = strtoull(buffer, NULL, 10); 
+    // while(fgets(buffer, buffer_len, input)) {
+    //     buffer[strcspn(buffer, "\n")] = 0;
+    //     uint64_t structure_seed = strtoull(buffer, NULL, 10); 
         
-        #pragma omp parallel num_threads(12)
-        #pragma omp for
-        for (uint64_t i = 0; i < 65536; ++i) {
-            uint64_t seed = (i << 48) | structure_seed;
+    //     #pragma omp parallel num_threads(12)
+    //     #pragma omp for
+    //     for (uint64_t i = 0; i < 65536; ++i) {
+    //         uint64_t seed = (i << 48) | structure_seed;
             
-            if (
-                filter_pearls(seed, 100, 20) == 1 && 
-                filter_vaults(seed) == 1 && 
-                filter_skulls(seed, 10, 3, 3) == 1 &&
-                filter_blaze_rods(seed, 9, 6)
-            ) {
-                printf("Seed: %lld\n", seed);
-                fprintf(output, "%lld\n", seed);
+    //         if (
+    //             filter_pearls(seed, 100, 20) == 1 && 
+    //             filter_vaults(seed) == 1 && 
+    //             filter_skulls(seed, 10, 3, 3) == 1 &&
+    //             filter_blaze_rods(seed, 9, 6)
+    //         ) {
+    //             printf("Seed: %lld\n", seed);
+    //             fprintf(output, "%lld\n", seed);
+    //         }
+    //     }
+    // }
+
+    // fclose(input);
+    // fclose(output);
+
+    // #pragma omp parallel num_threads(6)
+    // #pragma omp for
+    // for (uint64_t seed = 0; seed < UINT64_MAX; ++seed) {
+    //     if (check_end_city(seed, 50)) {
+    //         printf("Seed: %lld\n", seed);
+    //     }
+    // }
+    
+
+    // const int max_dist = 10;
+    // #pragma omp parallel num_threads(6)
+    // {
+    //     Pos pyramid_pos;
+    //     Pos spawn_pos;
+    //     Generator g;
+    //     setupGenerator(&g, MC_1_21, 0);
+        
+    //     #pragma omp for
+    //     for (uint64_t seed = 0; seed < UINT64_MAX; ++seed) {
+    //         applySeed(&g, DIM_OVERWORLD, seed);
+    //         int got_spawn = 0;
+    //         for (int r_x = -1; r_x <= 0; ++r_x) {
+    //             for (int r_z = -1; r_z <= 0; ++r_z) {
+    //                 if (!getStructurePos(Desert_Pyramid, MC_1_21, seed, r_x, r_z, &pyramid_pos)) {
+    //                     continue;
+    //                 }
+                    
+    //                 if (isViableStructurePos(Desert_Pyramid, &g, pyramid_pos.x, pyramid_pos.z, 0) && isViableStructureTerrain(Desert_Pyramid, &g, pyramid_pos.x, pyramid_pos.z)) {
+    //                     if (!got_spawn) {
+    //                         spawn_pos = getSpawn(&g);   
+    //                         got_spawn = 1;
+    //                     }
+    //                     if (abs(pyramid_pos.x - spawn_pos.x) > max_dist || abs(pyramid_pos.z - spawn_pos.z) > max_dist) continue;
+    //                     printf("seed: %lld; (%d, %d)\n", seed, pyramid_pos.x, pyramid_pos.z);
+    //                 }
+    //             }
+    //         }
+    //     }
+    // }
+
+    const int max_dist = 128;
+    const int max_struct_dist = 80;
+    #pragma omp parallel num_threads(6)
+    {
+        Pos bastion_pos;
+        Pos fortress_pos;
+        StructureVariant bastion_type;
+        Generator g;
+        setupGenerator(&g, MC_1_21, 0);
+        
+        #pragma omp for
+        for (uint64_t seed = 0; seed < UINT64_MAX; ++seed) {
+            applySeed(&g, DIM_NETHER, seed);
+            int found_bastion = 0;
+            int found_fortress = 0;
+
+            for (int r_x = -1; r_x <= 0; ++r_x) {
+                for (int r_z = -1; r_z <= 0; ++r_z) {
+                    if (!found_bastion && getStructurePos(Bastion, g.mc, g.seed, r_x, r_z, &bastion_pos)) {
+                        if (abs(bastion_pos.x) <= max_dist && abs(bastion_pos.z) <= max_dist) { 
+                            if (isViableStructurePos(Bastion, &g, bastion_pos.x, bastion_pos.z, 0)) {
+                                getVariant(&bastion_type, Bastion, g.mc, g.seed, r_x, r_z, -1);
+                                if (bastion_type.sx == 46) { // Only housing has sx = 46.
+                                    found_bastion = 1;
+                                } 
+                                
+                            }
+                        }
+                    }
+
+                    if (!found_fortress && getStructurePos(Fortress, g.mc, g.seed, r_x, r_z, &fortress_pos)) {
+                        if (abs(fortress_pos.x) <= max_dist && abs(fortress_pos.z) <= max_dist) {
+                            if (isViableStructurePos(Fortress, &g, fortress_pos.x, fortress_pos.z, 0)) {
+                                found_fortress = 1;
+                            }
+                        }
+                    }
+
+                    if (found_bastion && found_fortress) {
+                        if (abs(fortress_pos.x - bastion_pos.x) <= max_struct_dist && abs(fortress_pos.z - bastion_pos.z) <= max_struct_dist) {
+                            printf("Seed: %lld\n", g.seed);
+                        }
+                        goto next;
+                    }
+                }
             }
+        next:
         }
     }
 
-    fclose(input);
-    fclose(output);
-    
     return 0;
 }

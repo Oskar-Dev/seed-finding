@@ -19,7 +19,7 @@ int check_end_city(uint64_t seed, int max_distance) {
     int reg_x = gateway_pos.x / 320;
     int reg_z = gateway_pos.z / 320;
     Pos city_pos;
-    Piece* pieces = malloc(END_CITY_PIECES_MAX * sizeof(Piece));
+    Piece pieces[END_CITY_PIECES_MAX];
 
     for (int reg_mod_x = -1; reg_mod_x <= 1; ++reg_mod_x) {
         for (int reg_mod_z = -1; reg_mod_z <= 1; ++reg_mod_z) {
@@ -32,17 +32,15 @@ int check_end_city(uint64_t seed, int max_distance) {
                 isViableEndCityTerrain(&g, &noise, city_pos.x, city_pos.z)
             ) {
                 if (dist(city_pos.x, city_pos.z, gateway_pos.x, gateway_pos.z) <= max_distance) {
-                    getEndCityPieces(pieces, seed, reg_x, reg_z);
-                    for (int i = 0; i < END_CITY_PIECES_MAX; ++i) {
-                        if (strcmp(pieces[i].name, "ship"))
+                    int pieces_n = getEndCityPieces((Piece*)pieces, seed, city_pos.x >> 4, city_pos.z >> 4);
+                    for (int i = 0; i < pieces_n; ++i) {
+                        if (pieces[i].type == END_SHIP) 
                             return 1;
                     }
                 }
             }
         }
     }
-
-    free(pieces);
     
     return 0;
 }
