@@ -3,10 +3,6 @@
 #include <stdbool.h>
 #include "end_city.h"
 
-int dist(int x1, int y1, int x2, int y2) {
-    return (int)sqrt((x1 - x2)*(x1 - x2) + (y1 - y2)*(y1 - y2));
-}
-
 int check_end_city(uint64_t seed, int max_distance) {
     SurfaceNoise noise;
     Generator g;
@@ -31,7 +27,7 @@ int check_end_city(uint64_t seed, int max_distance) {
                 isViableStructurePos(End_City, &g, city_pos.x, city_pos.z, 0) && 
                 isViableEndCityTerrain(&g, &noise, city_pos.x, city_pos.z)
             ) {
-                if (dist(city_pos.x, city_pos.z, gateway_pos.x, gateway_pos.z) <= max_distance) {
+                if (abs(city_pos.x - gateway_pos.x) <= max_distance && abs(city_pos.z - gateway_pos.z) <= max_distance) {
                     int pieces_n = getEndCityPieces((Piece*)pieces, seed, city_pos.x >> 4, city_pos.z >> 4);
                     for (int i = 0; i < pieces_n; ++i) {
                         if (pieces[i].type == END_SHIP) 
