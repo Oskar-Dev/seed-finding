@@ -5,6 +5,8 @@
     "stdint.h": "c",
     "noise.h": "c",
     "random_sequence.h": "c",
-    "finders.c": "cpp"
+    "finders.c": "cpp",
+    "rng.h": "c",
+    "stdlib.h": "c"
   }
 }

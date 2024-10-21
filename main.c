@@ -1,16 +1,12 @@
+// #include "end_city.h"
 #include "end_city.c"
+#include "utils.h"
 #include "cubiomes.h"
 #include "MiLTSU.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
 #include <omp.h>
-
-int clamp(const int v, const int mn, const int mx) {
-    if (v < mn) return mn;
-    if (v > mx) return mx;
-    return v;
-}
 
 int next_has_torchflower_seed(Xoroshiro *xr) {
     return !xNextInt(xr, 2);
@@ -28,18 +24,6 @@ int next_has_skull(const int looting_level, Xoroshiro *xr) {
 
     // Actual skull rng
     return xNextFloat(xr) < 0.025 + (0.01 * looting_level);
-}
-
-void enchant_with_levels(Xoroshiro *xr, int level, const int ench_val) {
-    level += 1 + xNextInt(xr, ench_val / 4 + 1) + xNextInt(xr, ench_val / 4 + 1);
-    float amplifier = (xNextFloat(xr) + xNextFloat(xr) - 1.0f) * 0.15f;
-    level = clamp((int)round((float)level + (float)level * amplifier), 1, INT_MAX);
-    
-    xNextInt(xr, 1);
-    while (xNextInt(xr, 50) <= level) {
-        xNextInt(xr, 1);
-        level /= 2;
-    }
 }
 
 void next_vault_common(Xoroshiro *xr) {
@@ -239,15 +223,26 @@ int next_ominous_vault_unique(Xoroshiro *xr) {
 
 char* reward_path = "minecraft:chests/trial_chambers/reward";
 char* ominous_reward_path = "minecraft:chests/trial_chambers/reward_ominous";
-int filter_vaults(const uint64_t seed, const int check_trident) {
+int filter_vaults(const uint64_t seed, const int rolls, const int check_trident) {
     Xoroshiro xoro_reward = getRandomSequenceXoro(seed, reward_path);
     Xoroshiro xoro_ominous_reward = getRandomSequenceXoro(seed, ominous_reward_path);
 
-    if (check_trident) {
-        return next_ominous_vault_unique(&xoro_ominous_reward) == 9 && next_vault_unique(&xoro_reward) == 11;
-    } else {
-        return next_ominous_vault_unique(&xoro_ominous_reward) == 9;
+    if (check_trident) return 0;
+
+    int trident = 0;
+    int core = 0;
+    for (int i = 0; i < rolls; ++i) {
+        // if (check_trident) {
+        //     if (next_ominous_vault_unique(&xoro_ominous_reward) == 9) trident = 1;
+        //     if (next_vault_unique(&xoro_reward) == 11) core = 1;
+        // } else {
+            if (next_ominous_vault_unique(&xoro_ominous_reward) == 9) {
+                return 1;
+            }
+        // }
     }
+
+    return 0;
 }
 
 char* bartering_str = "minecraft:gameplay/piglin_bartering";
@@ -274,6 +269,26 @@ int filter_skulls(const uint64_t seed, const int kills, const int skulls, const 
     }
 
     return rolled_skulls >= skulls;
+}
+
+int filter_skulls_rng_manipulation(const uint64_t seed, const int max_kills, const int skulls) {
+    for (uint16_t i = 0; i < pow(2, max_kills); ++i) {
+        Xoroshiro xr = getRandomSequenceXoro(seed, wither_skeleton_str);
+        int skulls = 0;
+        int kills = 0;
+
+        for (int j = 0; j < max_kills; ++j) {
+            int looting_level = (i >> j) & 1 == 1 ? 0 : 3;
+            skulls += next_has_skull(looting_level, &xr);
+            ++kills;
+
+            if (skulls == 3) {
+                return 1;
+            }
+        }
+    }
+
+    return 0;
 }
 
 char* blaze_str = "minecraft:entities/blaze";
@@ -329,10 +344,57 @@ int check_pyramid(const uint64_t lower48, const int max_dist) {
     return 0;
 }
 
+int check_pyramid_village(const uint64_t lower48, const int max_pyramid_dist, const int max_village_dist) {
+    Pos pyramid_pos;
+    Pos spawn_pos;
+    Generator g;
+    setupGenerator(&g, MC_1_21, 0);
+    
+    applySeed(&g, DIM_OVERWORLD, lower48);
+    int got_spawn = 0;
+    for (int r_x = -1; r_x <= 0; ++r_x) {
+        for (int r_z = -1; r_z <= 0; ++r_z) {
+            if (!getStructurePos(Desert_Pyramid, MC_1_21, g.seed, r_x, r_z, &pyramid_pos)) {
+                continue;
+            }
+            
+            if (isViableStructurePos(Desert_Pyramid, &g, pyramid_pos.x, pyramid_pos.z, 0) && isViableStructureTerrain(Desert_Pyramid, &g, pyramid_pos.x, pyramid_pos.z)) {
+                if (!got_spawn) {
+                    spawn_pos = getSpawn(&g);   
+                    got_spawn = 1;
+                }
+                if (abs(pyramid_pos.x - spawn_pos.x) <= max_pyramid_dist && abs(pyramid_pos.z - spawn_pos.z) <= max_pyramid_dist) {
+                    goto village_check;
+                }
+            }
+        }
+    }
+
+    return 0;
+
+village_check:
+    Pos village_pos;
+    for (int r_x = -1; r_x <= 0; ++r_x) {
+        for (int r_z = -1; r_z <= 0; ++r_z) {
+            if (!getStructurePos(Village, MC_1_21, g.seed, r_x, r_z, &village_pos)) {
+                continue;
+            }
+            
+            if (isViableStructurePos(Village, &g, village_pos.x, village_pos.z, 0)) {
+                if (abs(pyramid_pos.x - village_pos.x) <= max_village_dist && abs(pyramid_pos.z - village_pos.z) <= max_village_dist) {
+                    return 1;
+                }
+            }
+        }
+    }
+
+    return 0;
+}
+
 int check_nether(const uint64_t lower48) {
-    const int max_bastion_dist = 160;
-    const int max_fortress_dist = 160;
-    const int max_structure_dist = 128;
+    const int max_bastion_dist = 128; // 96
+    const int max_fortress_dist = 128;
+    const int max_structure_dist = 128; // 96
 
     Pos bastion_pos;
     Pos fortress_pos;
@@ -387,119 +449,201 @@ int check_nether(const uint64_t lower48) {
     return 0;
 }
 
-int main() {
-    int buffer_len = 50;
+char* fishing_str = "minecraft:gameplay/fishing";
+int next_has_shell(Xoroshiro* xr, uint64_t seed) {
+    int n = xNextInt(xr, 100) + 1;
 
-    #pragma omp parallel num_threads(10)
+    if (n >= 11 && n <= 15) {
+        if (xNextInt(xr, 6) == 5) {
+            return 1;
+        }
+    }
+    
+    return 0;
+}
+
+/// ⚠️ BIG MESS WARNING ⚠️ ///
+ 
+// 14 - third_floor_2 (1 skrzynka)
+// rot = 0 -> x + 5 i z + 1 
+// rot = 1 -> x - 1 i z + 5 
+// rot = 2 -> x - 5 i z - 1 
+// rot = 3 -> x + 1 i z - 5 
+
+// 8 - fat_tower_top (2 skrzynki)
+// 12, 4; 14, 5
+// rot = 0 -> dalsza skrzynka: x + 5 i z + 14; bliższa skrzynka: x + 4 i z + 12; 
+// rot = 1 -> dalsza skrzynka: x - 14 i z + 5; bliższa skrzynka: x - 12 i z + 4; 
+// rot = 2 -> dalsza skrzynka: x - 5 i z - 14; bliższa skrzynka: x - 4 i z - 14; 
+// rot = 3 -> dalsza skrzynka: x + 14 i z - 5; bliższa skrzynka: x + 14 i z - 4; 
+
+// 12 - ship (2 skrzynki)
+// rot = 0 -> dalsza skrzynka: x + 8 i z + 6; bliższa skrzynka: x + 6 i z + 6; 
+// rot = 1 -> dalsza skrzynka: x - 6 i z + 8; bliższa skrzynka: x - 6 i z + 6; 
+// rot = 2 -> dalsza skrzynka: x - 8 i z - 6; bliższa skrzynka: x - 6 i z - 6; 
+// rot = 3 -> dalsza skrzynka: x + 6 i z - 8; bliższa skrzynka: x + 6 i z - 6; 
+
+int main2() {
+    // const uint64_t seed = 2306408978509825121;
+    // uint64_t seed = 0;
+    // Pos pos;
+    // for (uint64_t seed = 0;; ++seed) {
+    //     if (check_end_city(seed, 128, &pos)) {
+    //         // for (uint64_t n = 0; n < UINT16_MAX; ++n) {
+    //             // uint64_t world_seed = (n << 48) | seed;
+    //             if (check_end_city_for_trim(seed, pos.x, pos.z)) {
+    //                 printf("seed: %lld\n", seed);
+
+    //                 Piece pieces[END_CITY_PIECES_MAX];
+    //                 int pieces_n = getEndCityPieces(pieces, seed, pos.x, pos.z);
+    //                 for (int i = 0; i < pieces_n; ++i) {
+    //                     if (pieces[i].type == 8 || pieces[i].type == 12 || pieces[i].type == 14)
+    //                         printf("Name: %s, rot: %d; (%d, %d, %d)\n", pieces[i].name, pieces[i].rot, pieces[i].pos.x, pieces[i].pos.z, pieces[i].pos.y);
+    //                 }
+    //             }
+    //         // }
+    //     }
+    // }
+    // uint64_t loot_seeds[2];
+    // EndCityLootOut loot[7];
+    // Xoroshiro xr;
+
+    // uint64_t decorator_seed = get_decorator_seed(seed, -8608, 1008, END_CITY_SALT);
+    // xSetSeed(&xr, decorator_seed);
+
+    // for (int s = 0; s < 2; ++s) {
+    //     printf("// SKRZYNKA //\n");
+    //     get_loot_seeds(&xr, loot_seeds, 1);
+    //     int entries = get_end_city_chest_loot(loot_seeds[0], loot);
+        
+    //     for (int i = 0; i < entries; ++i) {
+    //         print_end_city_entry(&loot[i]);
+    //     }
+    // }
+}
+
+int main111() {
+    #pragma omp parallel num_threads(8)
     {
-        char buffer[50];
-        FILE* input;
-        input = fopen("input_60mln.txt", "r");
-        if (input == NULL) {
-            printf("[ERROR]: Couldn't open the seeds file.\n");
-            exit(1);
-        }
-        
-        FILE* output;
-        output = fopen("output.txt", "a");
-        if (output == NULL) {
-            printf("[ERROR]: Couldn't open the seeds file.\n");
-            exit(1);
-        }
-        
+        Pos city_pos;
+
         #pragma omp for
-        for (int line_to_read = 0; line_to_read < 59729806; ++line_to_read) {
-            int line = 0;
-            while(fgets(buffer, buffer_len, input)) {
-                if (line != line_to_read) {
-                    ++line;
-                    continue;
-                }
-
-                buffer[strcspn(buffer, "\n")] = 0;
-                uint64_t structure_seed = strtoull(buffer, NULL, 10);
-
-                if (!check_nether(structure_seed)) continue;
-                
-                for (uint64_t i = 0; i < 65536; ++i) {
-                    uint64_t seed = (i << 48) | structure_seed;
-
+        for (uint64_t structure_seed = UINT32_MAX + 14323; structure_seed < (uint64_t)1 << 48; ++structure_seed) {
+            if (
+                check_nether(structure_seed) &&
+                check_end_city(structure_seed, 256, &city_pos)
+            ) {
+                for (uint64_t i = 0; i < UINT16_MAX; ++i) {
+                    uint64_t world_seed = (i << 48) | structure_seed;
                     if (
-                        filter_vaults(seed, 0) && 
-                        filter_blaze_rods(seed, 8, 6) && 
-                        filter_pearls(seed, 90, 20) && 
-                        filter_skulls(seed, 10, 3, 3) &&
-                        check_pyramid(seed, 96)
+                        filter_pearls(world_seed, 100, 16) && 
+                        filter_vaults(world_seed, 4, 0) &&
+                        check_end_city_for_trim(world_seed, city_pos.x, city_pos.z) &&
+                        check_pyramid_village(world_seed, 208, 208) && 
+                        // filter_skulls(world_seed, 20, 3, 3)
+                        filter_skulls_rng_manipulation(world_seed, 8, 3)
                     ) {
-                        printf("Seed: %lld\n", seed);
-                        fprintf(output, "%lld\n", seed);
+                        printf("Seed: %lld\n", world_seed);
                     }
                 }
             }
         }
-        fclose(input);
-        fclose(output);
+    }
+}
+
+int main10() {
+    int max_dist = 32;
+    Pos chamber_pos;
+    Pos spawn_pos;
+    Generator g;
+    setupGenerator(&g, MC_1_21, 0);
+    
+    for (uint64_t seed = 0; seed < (uint64_t)2<<32; ++seed) {        
+        applySeed(&g, DIM_OVERWORLD, seed);
+        int got_spawn = 0;
+        for (int r_x = -1; r_x <= 0; ++r_x) {
+            for (int r_z = -1; r_z <= 0; ++r_z) {
+                if (!getStructurePos(Trial_Chambers, MC_1_21, g.seed, r_x, r_z, &chamber_pos)) {
+                    continue;
+                }
+                
+                if (isViableStructurePos(Trial_Chambers, &g, chamber_pos.x, chamber_pos.z, 0)) {
+                    if (!got_spawn) {
+                        spawn_pos = getSpawn(&g);   
+                        got_spawn = 1;
+                    }
+                    
+                    if (abs(chamber_pos.x - spawn_pos.x) <= max_dist && abs(chamber_pos.z - spawn_pos.z) <= max_dist) {
+                        printf("Seed: %lld\n", seed);
+                    }
+                }
+            }
+        }
     }
 
-    // char buffer[50];
-    // FILE* input;
-    // input = fopen("input_new.txt", "r");
-    // if (input == NULL) {
-    //     printf("[ERROR]: Couldn't open the seeds file.\n");
-    //     exit(1);
-    // }
-    
-    // FILE* output;
-    // output = fopen("output.txt", "a");
-    // if (output == NULL) {
-    //     printf("[ERROR]: Couldn't open the seeds file.\n");
-    //     exit(1);
-    // }
-    
-    // while(fgets(buffer, buffer_len, input)) {
-    //     buffer[strcspn(buffer, "\n")] = 0;
-    //     uint64_t structure_seed = strtoull(buffer, NULL, 10); 
-        
-    //     #pragma omp parallel num_threads(12)
-    //     #pragma omp for
-    //     for (uint64_t i = 0; i < 65536; ++i) {
-    //         uint64_t seed = (i << 48) | structure_seed;
-            
-    //         if (
-    //             filter_pearls(seed, 100, 20) == 1 && 
-    //             filter_vaults(seed) == 1 && 
-    //             filter_skulls(seed, 10, 3, 3) == 1 &&
-    //             filter_blaze_rods(seed, 9, 6)
-    //         ) {
-    //             printf("Seed: %lld\n", seed);
-    //             fprintf(output, "%lld\n", seed);
-    //         }
-    //     }
-    // }
 
-    // fclose(input);
-    // fclose(output);
-    
-    // #pragma omp parallel num_threads(8)
-    // #pragma omp for
-    // for (uint64_t structure_seed = 0; structure_seed < (uint64_t)1 << 47; ++structure_seed) {
-    //     if (
-    //         check_nether(structure_seed) && 
-    //         check_end_city(structure_seed, 112)
-    //     ) {
-    //         for (uint64_t i = 0; i < UINT16_MAX; ++i) {
-    //             uint64_t world_seed = (i << 48) | structure_seed;
-    //             if (
-    //                 filter_pearls(world_seed, 100, 20) && 
-    //                 filter_skulls(world_seed, 10, 3, 3) &&
-    //                 filter_vaults(world_seed) &&
-    //                 check_pyramid(world_seed, 112)
-    //             ) {
-    //                 printf("Seed: %lld\n", world_seed);
-    //             }
-    //         }
-    //     }
-    // }
+    return 0;
+}
+
+int main() {
+    // LARGE_INTEGER start, finish, freq;
+    // QueryPerformanceFrequency(&freq);
+    // QueryPerformanceCounter(&start);
+
+    // check_nether(structure_seed);
+    // check_end_city_for_trim(structure_seed, city_pos.x, city_pos.z);
+    // filter_vaults(structure_seed, 0);
+    // filter_skulls(structure_seed, 10, 3, 3);
+    // filter_pearls(structure_seed, 100, 20);
+    // QueryPerformanceCounter(&finish);
+    // printf("Czas: %f\n", ((finish.QuadPart - start.QuadPart) / (double)freq.QuadPart));
+
+    // #pragma omp parallel num_threads(10)
+    {
+        // FILE* output;
+        // output = fopen("output.txt", "a");
+        // if (output == NULL) {
+        //     printf("[ERROR]: Couldn't open the output file.\n");
+        //     exit(1);
+        // }
+
+        Pos city_pos;
+
+        // for (uint64_t structure_seed = 0; structure_seed < (uint64_t)1 << 48; ++structure_seed) {
+        // for (uint64_t structure_seed = (uint64_t)1 << 48; structure_seed > 0; --structure_seed) {
+        // #pragma omp for
+        int x = 0;
+        for (uint64_t structure_seed = 1; structure_seed < (uint64_t)1 << 48; ++structure_seed) {
+            // uint64_t structure_seed = nextLong(&i) << 16 >> 16;
+            
+            if (check_pyramid_village(structure_seed, 256, 256)) {
+                ++x;
+                printf("~%f%%\n", (float)x/structure_seed*100.0);
+            }
+
+            // if (
+            //     check_nether(structure_seed) &&
+            //     check_end_city(structure_seed, 208, &city_pos)
+            // ) {
+            //     for (uint64_t i = 0; i < UINT16_MAX; ++i) {
+            //         uint64_t world_seed = (i << 48) | structure_seed;
+            //         if (
+            //             filter_pearls(world_seed, 100, 20) && 
+            //             filter_vaults(world_seed, 1, 0) &&
+            //             filter_blaze_rods(world_seed, 10, 6) &&
+            //             check_end_city_for_trim(world_seed, city_pos.x, city_pos.z) &&
+            //             check_pyramid_village(world_seed, 128, 128) && 
+            //             filter_skulls_rng_manipulation(world_seed, 10, 3)
+            //             // filter_skulls(world_seed, 10, 3, 3)
+            //         ) {
+            //             printf("Seed: %lld\n", world_seed);
+            //             // fprintf(output, "%lld\n", world_seed);
+            //         }
+            //     }
+            // }
+        }
+        // fclose(output);
+    }
 
     return 0;
 }

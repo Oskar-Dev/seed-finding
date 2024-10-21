@@ -1,1 +1,1 @@
-gcc main.c -o main.exe -O3 -std=c99 -fopenmp
+gcc utils.c main.c -o main.exe -O3 -std=c99 -fopenmp

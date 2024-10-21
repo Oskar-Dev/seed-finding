@@ -1,1 +1,7 @@
 *.txt
+*.exe
+*.bat
+*.json
+gateway.c
+MiLTSU.h
+usunsyf.c
