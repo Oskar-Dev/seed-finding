@@ -49,24 +49,20 @@ int main() {
     // 0.041539
     // 0.014959
 
-    const int max_kills = 10;
+    const int max_kills = 9;
     // for (uint64_t seed = 1; seed < UINT64_MAX; ++seed) {
-    uint64_t seed = -1850838705525738103;
+    uint64_t seed = -4788054439990235065
+;
         for (uint16_t i = 0; i < pow(2, max_kills); ++i) {
             Xoroshiro xr = getRandomSequenceXoro(seed, SKULL);
             int skulls = 0;
             int kills = 0;
 
+            // xSkipN(&xr, 2);
+            // xSkipN(&xr, 2);
+
             for (int j = 0; j < max_kills; ++j) {
                 int looting_level = (i >> j) & 1 == 1 ? 3 : 0;
-                
-                if (j == 0) looting_level = 0;
-                if (j == 1) looting_level = 0;
-                if (j == 2) looting_level = 0;
-                // if (j == 2) looting_level = 3;
-                // if (j == 3) looting_level = 3;
-                // if (j == 4) looting_level = 3;
-                // if (j == 5) looting_level = 0;
                 
                 skulls += next_has_skull(looting_level, &xr);
                 ++kills;
@@ -78,6 +74,7 @@ int main() {
                     // float seeds_per_second = succ / (float)passed_time;
 
                     // printf("Seed: %lld; Seeds/s: %f; Chance: %f%\n", seed, seeds_per_second, p);
+                    // printf("Seed: %lld; Kills: %d; ID: ", seed, kills);
                     printf("Seed: %lld; Kills: %d; ID: ", seed, kills);
                     binprintf(i);
                     printf("\n");

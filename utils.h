@@ -12,5 +12,6 @@ uint64_t get_decorator_seed(const uint64_t world_seed, const int block_x, const 
 void get_loot_seeds(Xoroshiro* xr, uint64_t* loot_seeds, const int chests);
 void enchant_with_levels(Xoroshiro *xr, int level, const int ench_val);
 void enchant_with_levels_java(uint64_t* rand, int level, const int ench_val);
+int enchant_with_levels_looting_check(uint64_t* rand, int level, const int ench_val);
 
 #endif

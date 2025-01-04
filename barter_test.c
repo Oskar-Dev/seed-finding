@@ -22,6 +22,7 @@
     // {17, 8, 16, 40, true, false}; // 17: minecraft:blackstone
 
 void print_loot(int n, BarteringOut* loot) {
+    if (loot->id != 6) return;
     switch (loot->id) {
         case 0: { printf("%d: book (%d)\n", n, loot->amount); } break;
         case 1: { printf("%d: iron_boots (%d)\n", n, loot->amount); } break;
@@ -49,7 +50,7 @@ void print_loot(int n, BarteringOut* loot) {
 
 char* bartering_str = "minecraft:gameplay/piglin_bartering";
 int main() {
-    Xoroshiro xr = getRandomSequenceXoro(-1850838705525738103, bartering_str);
+    Xoroshiro xr = getRandomSequenceXoro(6584833722991272806, bartering_str);
     int n = 200;
     
     for (int i = 1; i <= n; ++i) {
