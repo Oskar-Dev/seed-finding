@@ -1,1 +1,1 @@
-gcc utils.c main.c -o main.exe -O3 -std=c99 -fopenmp
+gcc utils.c main.c end_city.c "cubiomes/finders.c" "cubiomes/generator.c" "cubiomes/layers.c" "cubiomes/noise.c" "cubiomes/biomenoise.c" "cubiomes/quadbase.c" "cubiomes/util.c" "cubiomes/biomes.c" -o main.exe -O3 -std=c99 -fopenmp

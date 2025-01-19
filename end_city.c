@@ -4,6 +4,7 @@
 #include "end_city.h"
 #include "MiLTSU/random_sequence.h"
 #include "utils.h"
+#include "cubiomes.h"
 
 // typedef struct {
 //     int id;
@@ -48,28 +49,37 @@ EndCityLootEntry loot_entries[] = {
     // { 23, 1, 1, 14, false, 0, 0, true } // minecraft:spire_armor_trim_smithing_template
 };
 
-void fast_linked_gateway(uint64_t lower48, Pos3* gateway_pos) {
-    Pos mainGateway = getMainGateway(lower48);
+// void fast_linked_gateway(uint64_t lower48, Pos3* gateway_pos) {
+//     Pos mainGateway = getMainGateway(lower48);
 
-    double rootlen = sqrt(mainGateway.x * mainGateway.x + mainGateway.z * mainGateway.z);
+//     double rootlen = sqrt(mainGateway.x * mainGateway.x + mainGateway.z * mainGateway.z);
 
-    Vec normalizedVector = {mainGateway.x / rootlen, mainGateway.z / rootlen};
+//     Vec normalizedVector = {mainGateway.x / rootlen, mainGateway.z / rootlen};
 
-    gateway_pos->x = normalizedVector.x * 1024.0;
-    gateway_pos->z = normalizedVector.z * 1024.0;
-} 
+//     gateway_pos->x = normalizedVector.x * 1024.0;
+//     gateway_pos->z = normalizedVector.z * 1024.0;
+// } 
+#define VERSION MC_1_20
 
 int check_end_city(uint64_t seed, int max_distance, Pos* pos) {
-    SurfaceNoise noise;
+    SurfaceNoise surface_noise;
+    EndNoise end_noise;
     Generator g;
-    setupGenerator(&g, MC_1_21, 0);
+    setupGenerator(&g, VERSION, 0);
 
     applySeed(&g, DIM_END, seed);
-    initSurfaceNoise(&noise, DIM_END, seed);
+    initSurfaceNoise(&surface_noise, DIM_END, seed);
+    setEndSeed(&end_noise, VERSION, seed);
 
-    Pos3 gateway_pos;
-    fast_linked_gateway(seed, &gateway_pos);
+    // getMainGateway()
+    // Pos3 gateway_pos;
+    // fast_linked_gateway(seed, &gateway_pos);
     // Pos3 gateway_pos = linkedGateway(seed);
+
+    Pos gateways[20];
+    getFixedEndGateways(VERSION, seed, gateways);
+    Pos gateway_pos = getLinkedGatewayPos(&end_noise, &surface_noise, seed, gateways[0]);
+
     int reg_x = gateway_pos.x / 320;
     int reg_z = gateway_pos.z / 320;
     Pos city_pos;
@@ -83,7 +93,7 @@ int check_end_city(uint64_t seed, int max_distance, Pos* pos) {
             
             if (
                 isViableStructurePos(End_City, &g, city_pos.x, city_pos.z, 0) && 
-                isViableEndCityTerrain(&g, &noise, city_pos.x, city_pos.z)
+                isViableEndCityTerrain(&g, &surface_noise, city_pos.x, city_pos.z)
             ) {
                 if (abs(city_pos.x - gateway_pos.x) <= max_distance && abs(city_pos.z - gateway_pos.z) <= max_distance) {
                     int pieces_n = getEndCityPieces((Piece*)pieces, seed, city_pos.x >> 4, city_pos.z >> 4);
@@ -143,29 +153,29 @@ int get_end_city_chest_loot(const uint64_t loot_seed, EndCityLootOut *loot) {
     return rolls;
 }
 
-int end_city_loot_check(const uint64_t seed, const int chests, const int x, const int z) {
-    uint64_t loot_seeds[2];
-    EndCityLootOut loot[7];
-    Xoroshiro xr;
+// int end_city_loot_check(const uint64_t seed, const int chests, const int x, const int z) {
+//     uint64_t loot_seeds[2];
+//     EndCityLootOut loot[7];
+//     Xoroshiro xr;
 
-    uint64_t decorator_seed = get_decorator_seed(seed, x, z, END_CITY_SALT);
-    xSetSeed(&xr, decorator_seed);
+//     uint64_t decorator_seed = get_decorator_seed(seed, x, z, END_CITY_SALT);
+//     xSetSeed(&xr, decorator_seed);
 
-    get_loot_seeds(&xr, loot_seeds, chests);
+//     get_loot_seeds(&xr, loot_seeds, chests);
 
-    for (int j = 0; j < chests; ++j) {
-        int entries = get_end_city_chest_loot(loot_seeds[j], loot);
+//     for (int j = 0; j < chests; ++j) {
+//         int entries = get_end_city_chest_loot(loot_seeds[j], loot);
         
-        for (int i = 0; i < entries; ++i) {
-            // Check for the trim.
-            if (loot[i].id == 23) {
-                return 1;
-            }
-        }
-    }
+//         for (int i = 0; i < entries; ++i) {
+//             // Check for the trim.
+//             if (loot[i].id == 23) {
+//                 return 1;
+//             }
+//         }
+//     }
 
-    return 0;
-}
+//     return 0;
+// }
 
 int check_end_city_chest_number(const uint64_t world_seed, const int chunk_x, const int chunk_z) {
     int chests = 0;
@@ -191,7 +201,168 @@ int check_end_city_chest_number(const uint64_t world_seed, const int chunk_x, co
     return chests;
 }
 
-int check_end_city_for_trim(const uint64_t world_seed, const int chunk_x, const int chunk_z) {
+// int check_end_city_for_trim(const uint64_t world_seed, const int chunk_x, const int chunk_z) {
+//     Piece pieces[END_CITY_PIECES_MAX];
+//     int pieces_n = getEndCityPieces(pieces, world_seed, chunk_x, chunk_z);
+
+//     for (int i = 0; i < pieces_n; ++i) {
+//         switch (pieces[i].type) {
+//             case THIRD_FLOOR_2: {
+//                 Pos chest;
+
+//                 switch (pieces[i].rot) {
+//                     case 0: { // ok
+//                         chest.x = (int)floor((pieces[i].pos.x + 5) / 16.0) * 16; 
+//                         chest.z = (int)floor((pieces[i].pos.z + 1) / 16.0) * 16; 
+//                     } break;
+                    
+//                     case 1: { // ok
+//                         chest.x = (int)floor((pieces[i].pos.x - 3) / 16.0) * 16; 
+//                         chest.z = (int)floor((pieces[i].pos.z + 5) / 16.0) * 16; 
+//                     } break;
+                
+//                     case 2: { // ok
+//                         chest.x = (int)floor((pieces[i].pos.x - 7) / 16.0) * 16; 
+//                         chest.z = (int)floor((pieces[i].pos.z - 3) / 16.0) * 16; 
+//                     } break;
+                
+//                     case 3: { // ok
+//                         chest.x = (int)floor((pieces[i].pos.x + 1) / 16.0) * 16; 
+//                         chest.z = (int)floor((pieces[i].pos.z - 7) / 16.0) * 16; 
+//                     } break;
+                
+//                     default:
+//                         break;
+//                 }
+
+//                 if (end_city_loot_check(world_seed, 1, chest.x, chest.z)) return 1;
+//             } break;
+
+//             case END_SHIP: {
+//                 Pos chest1;
+//                 Pos chest2;
+
+//                 switch (pieces[i].rot) {
+//                     case 0: { //ok
+//                         chest1.x = (int)floor((pieces[i].pos.x + 6) / 16.0) * 16; 
+//                         chest1.z = (int)floor((pieces[i].pos.z + 6) / 16.0) * 16; 
+//                         chest2.x = (int)floor((pieces[i].pos.x + 4) / 16.0) * 16; 
+//                         chest2.z = (int)floor((pieces[i].pos.z + 6) / 16.0) * 16; 
+//                     } break;
+                    
+//                     case 1: { // ok
+//                         chest1.x = (int)floor((pieces[i].pos.x - 8) / 16.0) * 16; 
+//                         chest1.z = (int)floor((pieces[i].pos.z + 6) / 16.0) * 16; 
+//                         chest2.x = (int)floor((pieces[i].pos.x - 8) / 16.0) * 16; 
+//                         chest2.z = (int)floor((pieces[i].pos.z + 4) / 16.0) * 16; 
+//                     } break;
+                
+//                     case 2: { // ok
+//                         chest1.x = (int)floor((pieces[i].pos.x - 6) / 16.0) * 16; 
+//                         chest1.z = (int)floor((pieces[i].pos.z - 8) / 16.0) * 16; 
+//                         chest2.x = (int)floor((pieces[i].pos.x - 8) / 16.0) * 16; 
+//                         chest2.z = (int)floor((pieces[i].pos.z - 8) / 16.0) * 16; 
+//                     } break;
+                
+//                     case 3: { // ok
+//                         chest1.x = (int)floor((pieces[i].pos.x + 6) / 16.0) * 16; 
+//                         chest1.z = (int)floor((pieces[i].pos.z - 8) / 16.0) * 16; 
+//                         chest2.x = (int)floor((pieces[i].pos.x + 6) / 16.0) * 16; 
+//                         chest2.z = (int)floor((pieces[i].pos.z - 6) / 16.0) * 16; 
+//                     } break;
+                
+//                     default:
+//                         break;
+//                 }
+                
+//                 if (chest1.x == chest2.x && chest1.z == chest2.z) {
+//                     if (end_city_loot_check(world_seed, 2, chest1.x, chest1.z)) return 1;
+//                 } else {
+//                     if (end_city_loot_check(world_seed, 1, chest1.x, chest1.z)) return 1;
+//                     if (end_city_loot_check(world_seed, 1, chest2.x, chest2.z)) return 1;
+//                 }
+
+//             } break;
+            
+//             case FAT_TOWER_TOP: {
+//                 Pos chest1;
+//                 Pos chest2;
+
+//                 switch (pieces[i].rot) {
+//                     case 0: { //
+//                         chest1.x = floor((pieces[i].pos.x + 2) / 16.0) * 16; 
+//                         chest1.z = floor((pieces[i].pos.z + 10) / 16.0) * 16; 
+//                         chest2.x = floor((pieces[i].pos.x + 4) / 16.0) * 16; 
+//                         chest2.z = floor((pieces[i].pos.z + 12) / 16.0) * 16; 
+//                     } break;
+                    
+//                     case 1: { // ok
+//                         chest1.x = floor((pieces[i].pos.x - 12) / 16.0) * 16; 
+//                         chest1.z = floor((pieces[i].pos.z + 2) / 16.0) * 16; 
+//                         chest2.x = floor((pieces[i].pos.x - 14) / 16.0) * 16; 
+//                         chest2.z = floor((pieces[i].pos.z + 4) / 16.0) * 16; 
+//                     } break;
+                
+//                     case 2: { // ok
+//                         chest1.x = floor((pieces[i].pos.x - 6) / 16.0) * 16; 
+//                         chest1.z = floor((pieces[i].pos.z - 14) / 16.0) * 16; 
+//                         chest2.x = floor((pieces[i].pos.x - 4) / 16.0) * 16; 
+//                         chest2.z = floor((pieces[i].pos.z - 12) / 16.0) * 16; 
+//                     } break;
+                 
+//                     case 3: { // ok
+//                         chest1.x = floor((pieces[i].pos.x + 10) / 16.0) * 16; 
+//                         chest1.z = floor((pieces[i].pos.z - 4) / 16.0) * 16; 
+//                         chest2.x = floor((pieces[i].pos.x + 12) / 16.0) * 16; 
+//                         chest2.z = floor((pieces[i].pos.z - 6) / 16.0) * 16; 
+//                     } break;
+                
+//                     default:
+//                         break;
+//                 }
+                
+//                 if (chest1.x == chest2.x && chest1.z == chest2.z) {
+//                     if (end_city_loot_check(world_seed, 2, chest1.x, chest1.z)) return 1;
+//                 } else {
+//                     if (end_city_loot_check(world_seed, 1, chest1.x, chest1.z)) return 1;
+//                     if (end_city_loot_check(world_seed, 1, chest2.x, chest2.z)) return 1;
+//                 }
+//             } break;
+            
+//             default:
+//                 break;
+//         }
+//     }
+
+//     return 0;
+// }
+
+int end_city_loot_check(const uint64_t seed, const int chests, const int x, const int z, Xoroshiro* xr, int reuse) {
+    EndCityLootOut loot[7];
+
+    if (!reuse) {
+        uint64_t decorator_seed = get_decorator_seed(seed, x, z, END_CITY_SALT);
+        xSetSeed(xr, decorator_seed);
+    }
+    
+    xSkipN(xr, chests * 2);
+    for (int j = 0; j < chests; ++j) {
+        uint64_t loot_seed = xNextLongJ(xr);
+        int entries = get_end_city_chest_loot(loot_seed, loot);
+        
+        // printf("------- SKRZYNKA ------- (%d, %d)\n", x, z);
+        for (int i = 0; i < entries; ++i) {
+            if (loot[i].id == 23) return 1;
+        }
+    }
+
+    return 0;
+}
+
+int check_end_city_loot(const uint64_t world_seed, const int chunk_x, const int chunk_z) {
+    Xoroshiro xr;
+    HamburgerLoot hamburgers[16];
+    int hamburger_index = 0;
     Piece pieces[END_CITY_PIECES_MAX];
     int pieces_n = getEndCityPieces(pieces, world_seed, chunk_x, chunk_z);
 
@@ -200,32 +371,38 @@ int check_end_city_for_trim(const uint64_t world_seed, const int chunk_x, const 
             case THIRD_FLOOR_2: {
                 Pos chest;
 
+                // The "+1" is required because the End Cities just moved by 2 blocks for some reason.
                 switch (pieces[i].rot) {
                     case 0: { // ok
-                        chest.x = (int)floor((pieces[i].pos.x + 5) / 16.0) * 16; 
-                        chest.z = (int)floor((pieces[i].pos.z + 1) / 16.0) * 16; 
+                        chest.x = ((pieces[i].pos.x + 5+1) >> 4) << 4; 
+                        chest.z = ((pieces[i].pos.z + 1+1) >> 4) << 4; 
                     } break;
                     
                     case 1: { // ok
-                        chest.x = (int)floor((pieces[i].pos.x - 3) / 16.0) * 16; 
-                        chest.z = (int)floor((pieces[i].pos.z + 5) / 16.0) * 16; 
+                        chest.x = ((pieces[i].pos.x - 3+1) >> 4) << 4; 
+                        chest.z = ((pieces[i].pos.z + 5+1) >> 4) << 4; 
                     } break;
                 
                     case 2: { // ok
-                        chest.x = (int)floor((pieces[i].pos.x - 7) / 16.0) * 16; 
-                        chest.z = (int)floor((pieces[i].pos.z - 3) / 16.0) * 16; 
+                        chest.x = ((pieces[i].pos.x - 7+1) >> 4) << 4; 
+                        chest.z = ((pieces[i].pos.z - 3+1) >> 4) << 4; 
                     } break;
                 
                     case 3: { // ok
-                        chest.x = (int)floor((pieces[i].pos.x + 1) / 16.0) * 16; 
-                        chest.z = (int)floor((pieces[i].pos.z - 7) / 16.0) * 16; 
+                        chest.x = ((pieces[i].pos.x + 1+1) >> 4) << 4; 
+                        chest.z = ((pieces[i].pos.z - 7+1) >> 4) << 4; 
                     } break;
                 
                     default:
                         break;
                 }
 
-                if (end_city_loot_check(world_seed, 1, chest.x, chest.z)) return 1;
+                if (end_city_loot_check(world_seed, 1, chest.x, chest.z, &xr, 0)) return 1;
+                hamburgers[hamburger_index].pos.x = chest.x;
+                hamburgers[hamburger_index].pos.z = chest.z;
+                hamburgers[hamburger_index].xr.hi = xr.hi;
+                hamburgers[hamburger_index].xr.lo = xr.lo;
+                ++hamburger_index;
             } break;
 
             case END_SHIP: {
@@ -234,31 +411,31 @@ int check_end_city_for_trim(const uint64_t world_seed, const int chunk_x, const 
 
                 switch (pieces[i].rot) {
                     case 0: { //ok
-                        chest1.x = (int)floor((pieces[i].pos.x + 6) / 16.0) * 16; 
-                        chest1.z = (int)floor((pieces[i].pos.z + 6) / 16.0) * 16; 
-                        chest2.x = (int)floor((pieces[i].pos.x + 4) / 16.0) * 16; 
-                        chest2.z = (int)floor((pieces[i].pos.z + 6) / 16.0) * 16; 
+                        chest1.x = ((pieces[i].pos.x + 6+1) >> 4) << 4; 
+                        chest1.z = ((pieces[i].pos.z + 6+1) >> 4) << 4; 
+                        chest2.x = ((pieces[i].pos.x + 4+1) >> 4) << 4; 
+                        chest2.z = ((pieces[i].pos.z + 6+1) >> 4) << 4; 
                     } break;
                     
                     case 1: { // ok
-                        chest1.x = (int)floor((pieces[i].pos.x - 8) / 16.0) * 16; 
-                        chest1.z = (int)floor((pieces[i].pos.z + 6) / 16.0) * 16; 
-                        chest2.x = (int)floor((pieces[i].pos.x - 8) / 16.0) * 16; 
-                        chest2.z = (int)floor((pieces[i].pos.z + 4) / 16.0) * 16; 
+                        chest1.x = ((pieces[i].pos.x - 8+1) >> 4) << 4; 
+                        chest1.z = ((pieces[i].pos.z + 6+1) >> 4) << 4; 
+                        chest2.x = ((pieces[i].pos.x - 8+1) >> 4) << 4; 
+                        chest2.z = ((pieces[i].pos.z + 4+1) >> 4) << 4; 
                     } break;
                 
                     case 2: { // ok
-                        chest1.x = (int)floor((pieces[i].pos.x - 6) / 16.0) * 16; 
-                        chest1.z = (int)floor((pieces[i].pos.z - 8) / 16.0) * 16; 
-                        chest2.x = (int)floor((pieces[i].pos.x - 8) / 16.0) * 16; 
-                        chest2.z = (int)floor((pieces[i].pos.z - 8) / 16.0) * 16; 
+                        chest1.x = ((pieces[i].pos.x - 6+1) >> 4) << 4; 
+                        chest1.z = ((pieces[i].pos.z - 8+1) >> 4) << 4; 
+                        chest2.x = ((pieces[i].pos.x - 8+1) >> 4) << 4; 
+                        chest2.z = ((pieces[i].pos.z - 8+1) >> 4) << 4; 
                     } break;
                 
                     case 3: { // ok
-                        chest1.x = (int)floor((pieces[i].pos.x + 6) / 16.0) * 16; 
-                        chest1.z = (int)floor((pieces[i].pos.z - 8) / 16.0) * 16; 
-                        chest2.x = (int)floor((pieces[i].pos.x + 6) / 16.0) * 16; 
-                        chest2.z = (int)floor((pieces[i].pos.z - 6) / 16.0) * 16; 
+                        chest1.x = ((pieces[i].pos.x + 6+1) >> 4) << 4; 
+                        chest1.z = ((pieces[i].pos.z - 8+1) >> 4) << 4; 
+                        chest2.x = ((pieces[i].pos.x + 6+1) >> 4) << 4; 
+                        chest2.z = ((pieces[i].pos.z - 6+1) >> 4) << 4; 
                     } break;
                 
                     default:
@@ -266,10 +443,10 @@ int check_end_city_for_trim(const uint64_t world_seed, const int chunk_x, const 
                 }
                 
                 if (chest1.x == chest2.x && chest1.z == chest2.z) {
-                    if (end_city_loot_check(world_seed, 2, chest1.x, chest1.z)) return 1;
+                    if (end_city_loot_check(world_seed, 2, chest1.x, chest1.z, &xr, 0)) return 1;
                 } else {
-                    if (end_city_loot_check(world_seed, 1, chest1.x, chest1.z)) return 1;
-                    if (end_city_loot_check(world_seed, 1, chest2.x, chest2.z)) return 1;
+                    if (end_city_loot_check(world_seed, 1, chest1.x, chest1.z, &xr, 0)) return 1;
+                    if (end_city_loot_check(world_seed, 1, chest2.x, chest2.z, &xr, 0)) return 1;
                 }
 
             } break;
@@ -280,31 +457,31 @@ int check_end_city_for_trim(const uint64_t world_seed, const int chunk_x, const 
 
                 switch (pieces[i].rot) {
                     case 0: { //
-                        chest1.x = floor((pieces[i].pos.x + 2) / 16.0) * 16; 
-                        chest1.z = floor((pieces[i].pos.z + 10) / 16.0) * 16; 
-                        chest2.x = floor((pieces[i].pos.x + 4) / 16.0) * 16; 
-                        chest2.z = floor((pieces[i].pos.z + 12) / 16.0) * 16; 
+                        chest1.x = ((pieces[i].pos.x + 2+1) >> 4) << 4; 
+                        chest1.z = ((pieces[i].pos.z + 10+1) >> 4) << 4; 
+                        chest2.x = ((pieces[i].pos.x + 4+1) >> 4) << 4; 
+                        chest2.z = ((pieces[i].pos.z + 12+1) >> 4) << 4; 
                     } break;
                     
                     case 1: { // ok
-                        chest1.x = floor((pieces[i].pos.x - 12) / 16.0) * 16; 
-                        chest1.z = floor((pieces[i].pos.z + 2) / 16.0) * 16; 
-                        chest2.x = floor((pieces[i].pos.x - 14) / 16.0) * 16; 
-                        chest2.z = floor((pieces[i].pos.z + 4) / 16.0) * 16; 
+                        chest1.x = ((pieces[i].pos.x - 12+1) >> 4) << 4; 
+                        chest1.z = ((pieces[i].pos.z + 2+1) >> 4) << 4; 
+                        chest2.x = ((pieces[i].pos.x - 14+1) >> 4) << 4; 
+                        chest2.z = ((pieces[i].pos.z + 4+1) >> 4) << 4; 
                     } break;
                 
                     case 2: { // ok
-                        chest1.x = floor((pieces[i].pos.x - 6) / 16.0) * 16; 
-                        chest1.z = floor((pieces[i].pos.z - 14) / 16.0) * 16; 
-                        chest2.x = floor((pieces[i].pos.x - 4) / 16.0) * 16; 
-                        chest2.z = floor((pieces[i].pos.z - 12) / 16.0) * 16; 
+                        chest1.x = ((pieces[i].pos.x - 6+1) >> 4) << 4; 
+                        chest1.z = ((pieces[i].pos.z - 14+1) >> 4) << 4; 
+                        chest2.x = ((pieces[i].pos.x - 4+1) >> 4) << 4; 
+                        chest2.z = ((pieces[i].pos.z - 12+1) >> 4) << 4; 
                     } break;
                  
                     case 3: { // ok
-                        chest1.x = floor((pieces[i].pos.x + 10) / 16.0) * 16; 
-                        chest1.z = floor((pieces[i].pos.z - 4) / 16.0) * 16; 
-                        chest2.x = floor((pieces[i].pos.x + 12) / 16.0) * 16; 
-                        chest2.z = floor((pieces[i].pos.z - 6) / 16.0) * 16; 
+                        chest1.x = ((pieces[i].pos.x + 10+1) >> 4) << 4; 
+                        chest1.z = ((pieces[i].pos.z - 4+1) >> 4) << 4; 
+                        chest2.x = ((pieces[i].pos.x + 12+1) >> 4) << 4; 
+                        chest2.z = ((pieces[i].pos.z - 6+1) >> 4) << 4; 
                     } break;
                 
                     default:
@@ -312,10 +489,51 @@ int check_end_city_for_trim(const uint64_t world_seed, const int chunk_x, const 
                 }
                 
                 if (chest1.x == chest2.x && chest1.z == chest2.z) {
-                    if (end_city_loot_check(world_seed, 2, chest1.x, chest1.z)) return 1;
+                    int checked = 0;
+                    for (int k = 0; k < hamburger_index; ++k) {
+                        if (hamburgers[k].pos.z == chest1.z && hamburgers[k].pos.x == chest1.x) {
+                            if (end_city_loot_check(world_seed, 2, chest1.x, chest1.z, &hamburgers[k].xr, 1)) return 1;
+                            checked = 1;
+                        }
+                    }
+                    
+                    if (!checked) {
+                        if (end_city_loot_check(world_seed, 2, chest1.x, chest1.z, &xr, 0)) return 1;
+                    }
                 } else {
-                    if (end_city_loot_check(world_seed, 1, chest1.x, chest1.z)) return 1;
-                    if (end_city_loot_check(world_seed, 1, chest2.x, chest2.z)) return 1;
+                    int checked1 = 0;
+                    int checked2 = 0;
+                    for (int k = 0; k < hamburger_index; ++k) {
+                        if (hamburgers[k].pos.z == chest1.z && hamburgers[k].pos.x == chest1.x) {
+                            if (end_city_loot_check(world_seed, 1, chest1.x, chest1.z, &hamburgers[k].xr, 1)) return 1;
+                            checked1 = 1;
+                        }
+
+                        if (hamburgers[k].pos.z == chest2.z && hamburgers[k].pos.x == chest2.x) {
+                            if (end_city_loot_check(world_seed, 1, chest2.x, chest2.z, &hamburgers[k].xr, 1)) return 1;
+                            checked2 = 1;
+                        }
+                    }
+
+                    if (!checked1) {
+                        if (end_city_loot_check(world_seed, 1, chest1.x, chest1.z, &xr, 0)) return 1;
+                    }
+
+                    if (!checked2) {
+                        if (end_city_loot_check(world_seed, 1, chest2.x, chest2.z, &xr, 0)) return 1;
+                    }
+
+                    // if (last_hamburger_pos.x == chest1.x && last_hamburger_pos.z == chest1.z) {
+                    //     end_city_loot_check(world_seed, 1, chest1.x, chest1.z, required_enchantments, &xr, 1);
+                    // } else {
+                    //     end_city_loot_check(world_seed, 1, chest1.x, chest1.z, required_enchantments, &xr, 0);
+                    // }
+
+                    // if (last_hamburger_pos.x == chest2.x && last_hamburger_pos.z == chest2.z) {
+                    //     end_city_loot_check(world_seed, 1, chest2.x, chest2.z, required_enchantments, &xr, 1);
+                    // } else {
+                    //     end_city_loot_check(world_seed, 1, chest2.x, chest2.z, required_enchantments, &xr, 0);
+                    // }
                 }
             } break;
             

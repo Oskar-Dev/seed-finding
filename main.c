@@ -1,5 +1,5 @@
 // #include "end_city.h"
-#include "end_city.c"
+#include "end_city.h"
 #include "utils.h"
 #include "cubiomes.h"
 #include "MiLTSU.h"
@@ -7,8 +7,9 @@
 #include <stdlib.h>
 #include <math.h>
 #include <omp.h>
+#include <inttypes.h>
 
-#define MC_VERSION MC_1_18_2
+#define MC_VERSION MC_1_20
 
 #define DESERT_PYRAMID_SALT 40001
 #define BASTION_SALT 40000
@@ -1034,7 +1035,7 @@ rotation 3 -> x+16 & z-16 (z+16 -> 5 skrzynek; z-16 -> 1 skrzynka)
 //     }
 // }
 
-int main() {
+int main11111() {
     Pos pyramid_pos;
     Pos village_pos;
     Generator g;
@@ -1078,22 +1079,22 @@ int main87428934() {
         // uint64_t seed = 2380152399079092633;
         // -6599087034744729177
 
-        if (
-            filter_elder_guardian(seed, 3) &&
-            filter_shulker_shells(seed, 3, 4, 6) &&
-            check_generation_attempt(seed, 96, 96, &pyramid_pos, &village_pos) &&
-            // check_spawn()
-            check_pyramid_loot(seed, pyramid_pos.x, pyramid_pos.z) &&
-            check_nether(seed, g, &bastion_data) &&
-            check_end_city(seed, 256, &city_pos) &&
-            check_end_city_for_trim(seed, city_pos.x, city_pos.z) &&
-            (check_bastion_looting(seed, bastion_data.start_x, bastion_data.start_z, bastion_data.rotation) || check_end_city_for_looting(seed, city_pos.x, city_pos.z)) &&
-            check_end_city_chest_number(seed, city_pos.x, city_pos.z) >= 3 &&
-            filter_vaults(seed, 1, 1)
+        // if (
+        //     filter_elder_guardian(seed, 3) &&
+        //     filter_shulker_shells(seed, 3, 4, 6) &&
+        //     check_generation_attempt(seed, 96, 96, &pyramid_pos, &village_pos) &&
+        //     // check_spawn()
+        //     check_pyramid_loot(seed, pyramid_pos.x, pyramid_pos.z) &&
+        //     check_nether(seed, g, &bastion_data) &&
+        //     check_end_city(seed, 256, &city_pos) &&
+        //     check_end_city_for_trim(seed, city_pos.x, city_pos.z) &&
+        //     (check_bastion_looting(seed, bastion_data.start_x, bastion_data.start_z, bastion_data.rotation) || check_end_city_for_looting(seed, city_pos.x, city_pos.z)) &&
+        //     // check_end_city_chest_number(seed, city_pos.x, city_pos.z) >= 3 &&
+        //     filter_vaults(seed, 1, 1)
             
-        ) {
-            printf("%lld\n", seed);
-        }
+        // ) {
+        //     printf("%lld\n", seed);
+        // }
     }
 
     return 0;
@@ -1166,14 +1167,14 @@ int main87428934() {
 //     filter_elder_guardian(seed, 3);
 // }
 
-int main33() {
-    FILE* output = fopen("VERSION_final_real.txt", "a");
+int main() {
+    FILE* output = fopen("1_20_bastion.txt", "a");
     if (output == NULL) {
         printf("[ERROR]: Couldn't open the output file.\n");
         exit(1);
     }
 
-    FILE* input = fopen("VERSION_final.txt", "r");
+    FILE* input = fopen("1_20.txt", "r");
     if (input == NULL) {
         printf("[ERROR]: Couldn't open the input file.\n");
         exit(1);
@@ -1183,22 +1184,20 @@ int main33() {
     Generator g;
     setupGenerator(&g, MC_VERSION, 0);
 
-    Pos pyramid_pos;
-    Pos village_pos;
-    Pos city_pos;
+    BastionData bastion_data;
 
     while(fgets(chunk, sizeof(chunk), input) != NULL) {
-        // uint64_t structure_seed = strtoull(chunk, NULL, 10);
         uint64_t seed = strtoull(chunk, NULL, 10);
+        // uint64_t seed = strtoull(chunk, NULL, 10);
 
         // if (check_end_city(seed, 128, &city_pos)) {
             // if (check_end_city_chest_number(seed, city_pos.x, city_pos.z) >= 10) {
                 // printf("%lld\n", seed);
             // }
         // }
-        if (filter_elder_guardian(seed, 3)) {
-            printf("seed: %lld\n", seed);
-        }
+        // if (filter_elder_guardian(seed, 3)) {
+        //     printf("seed: %lld\n", seed);
+        // }
 
         // if (check_end_city(seed, 256, &city_pos)) {
         //     if (check_end_city_for_trim(seed, city_pos.x, city_pos.z)) {
@@ -1206,22 +1205,32 @@ int main33() {
         //         fprintf(output, "%lld\n", seed);
         //     }
         // }
+
+        if (check_nether(seed, g, &bastion_data)) {
+            if (check_bastion_looting(seed, bastion_data.start_x, bastion_data.start_z, bastion_data.rotation)) {
+                printf("Seed: %lld\n", seed);
+                fprintf(output, "%lld\n", seed);
+            }
+        }
+    
         // if (
-        //     check_nether(structure_seed, g) &&
+        //     check_nether(structure_seed, g, &bastion_data) &&
         //     check_generation_attempt(structure_seed, 96, 96, &pyramid_pos, &village_pos)
         // ) {
-        //     #pragma omp parallel num_threads(8)
+        //     #pragma omp parallel num_threads(10)
         //     #pragma omp for
         //     for (uint64_t i = 0; i < UINT16_MAX; ++i) {
         //         uint64_t world_seed = (i << 48) | structure_seed;
         //         if (
         //             filter_pearls(world_seed, 100, 20) &&
-        //             filter_vaults(world_seed, 1, 0) &&
+        //             filter_shulker_shells(world_seed, 3, 4, 6) &&
+        //             filter_elder_guardian(world_seed, 2) &&
+        //             check_end_city(world_seed, 256, &city_pos) &&
+        //             check_end_city_loot(world_seed, city_pos.x, city_pos.z) &&
         //             check_spawn(world_seed, &pyramid_pos, &village_pos, g) &&
-        //             // check_pyramid_village_bad(world_seed, 128, 128, g) &&
         //             filter_skulls_rng_manipulation(world_seed, 8, 3)
         //         ) {
-        //             // printf("Seed: %lld\n", world_seed);
+        //             printf("Seed: %lld\n", world_seed);
         //             fprintf(output, "%lld\n", world_seed);
         //         }
         //     }

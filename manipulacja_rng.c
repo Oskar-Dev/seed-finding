@@ -40,7 +40,7 @@ int main() {
 
     // printf("3/%d\n", kills);
     // time_t seconds = time(NULL);
-    // int succ = 0;
+    int succ = 0;
 
     // 0.988370
     // 0.458423
@@ -49,10 +49,9 @@ int main() {
     // 0.041539
     // 0.014959
 
-    const int max_kills = 9;
-    // for (uint64_t seed = 1; seed < UINT64_MAX; ++seed) {
-    uint64_t seed = -4788054439990235065
-;
+    const int max_kills = 8;
+    for (uint64_t seed = 1; seed < UINT64_MAX; ++seed) {
+    // uint64_t seed = -4788054439990235065;
         for (uint16_t i = 0; i < pow(2, max_kills); ++i) {
             Xoroshiro xr = getRandomSequenceXoro(seed, SKULL);
             int skulls = 0;
@@ -68,21 +67,23 @@ int main() {
                 ++kills;
 
                 if (skulls == 3 && kills <= max_kills) {
-                    // ++succ;
-                    // float p = (float)succ / seed * 100;
+                    ++succ;
+                    float p = (float)succ / seed * 100;
                     // time_t passed_time = time(NULL) - seconds;
                     // float seeds_per_second = succ / (float)passed_time;
 
                     // printf("Seed: %lld; Seeds/s: %f; Chance: %f%\n", seed, seeds_per_second, p);
+                    printf("Szansa: %f%\n", p);
                     // printf("Seed: %lld; Kills: %d; ID: ", seed, kills);
-                    printf("Seed: %lld; Kills: %d; ID: ", seed, kills);
-                    binprintf(i);
-                    printf("\n");
+                    // printf("Seed: %lld; Kills: %d; ID: ", seed, kills);
+                    // binprintf(i);
+                    // printf("\n");
                     goto next;
                 }
             }
         // }
-    next:
+        }
+        next:
     }
 
     return 0;
